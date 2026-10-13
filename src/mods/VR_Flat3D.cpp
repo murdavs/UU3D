@@ -3544,9 +3544,13 @@ vrmod::flat3d::Flat3DFrameParams VR::build_flat3d_frame_params(uint32_t eye_w, u
     }
 
     // Crosshair is activated by default unless key/mouse-activated is enabled.
-    if (m_flat3d_crosshair_key_activated->value() == 0 && m_flat3d_crosshair_mouse_activated->value() == 0) {
-        m_flat3d_crosshair_activated = true;
-    } else if (!g_framework->is_drawing_ui()) { // Skip when ui menu is opened.
+    // The default is applied locally, never written into the latched state:
+    // latching true here meant switching Off -> Hold/Toggle mid-game started
+    // with the crosshair already on (Hold stayed on until the first release,
+    // Toggle's first press turned it off).
+    const bool crosshair_gated = m_flat3d_crosshair_key_activated->value() != 0 ||
+                                 m_flat3d_crosshair_mouse_activated->value() != 0;
+    if (crosshair_gated && !g_framework->is_drawing_ui()) { // Skip when ui menu is opened.
         // Check crosshair key.
         switch (m_flat3d_crosshair_key_activated->value()) {
         case 1:
@@ -3603,7 +3607,8 @@ vrmod::flat3d::Flat3DFrameParams VR::build_flat3d_frame_params(uint32_t eye_w, u
     // Crosshair at the aimed depth (adaptive) or the static depth. Suppressed
     // while the game shows a mouse cursor — the region extraction/laser sits
     // in the middle of menu GUIs otherwise.
-    p.crosshair_mode = (!m_flat3d_crosshair_activated || in_menus) ? 0 : (uint32_t)m_flat3d_crosshair_mode->value();
+    const bool crosshair_activated = !crosshair_gated || m_flat3d_crosshair_activated;
+    p.crosshair_mode = (!crosshair_activated || in_menus) ? 0 : (uint32_t)m_flat3d_crosshair_mode->value();
 
     if (p.crosshair_mode != 0) {
         float z_uu = -1.0f;
