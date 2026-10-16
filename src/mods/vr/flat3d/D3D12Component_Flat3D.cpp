@@ -975,11 +975,15 @@ vr::EVRCompositorError D3D12Component::on_frame_flat3d(VR* vr) {
         m_flat3d_compositor.begin_screenshot();
     }
 
-    if (!m_flat3d_compositor.composite(double_wide.Get(), second_eye_src, ui_tex, menu_tex, real_backbuffer.Get(),
-                                       (uint32_t)bb_desc.Width, bb_desc.Height, params,
+    const bool composited = m_flat3d_compositor.composite(double_wide.Get(), second_eye_src, ui_tex, menu_tex,
+                                       real_backbuffer.Get(), (uint32_t)bb_desc.Width, bb_desc.Height, params,
                                        scene_depth.Get(), vr->get_flat3d_runtime()->game_nearz.load(),
                                        &center_uu, &nearest_uu, &ui_coverage, g_framework->get_window(),
-                                       scene_depth_state)) {
+                                       scene_depth_state);
+
+    vr->get_flat3d_runtime()->leiasr_crosstalk_controls.store(m_flat3d_compositor.leiasr_crosstalk_controls());
+
+    if (!composited) {
         return vr::VRCompositorError_None;
     }
 

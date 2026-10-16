@@ -10,6 +10,8 @@
 #endif
 #include <windows.h>
 
+#include <spdlog/spdlog.h>
+
 namespace vrmod::flat3d::leiasr {
 
 #ifndef _DPI_AWARENESS_CONTEXTS_
@@ -76,6 +78,63 @@ struct ScopedPerMonitorDpi {
     }
     ScopedPerMonitorDpi(const ScopedPerMonitorDpi&) = delete;
     ScopedPerMonitorDpi& operator=(const ScopedPerMonitorDpi&) = delete;
+};
+
+// The weaver's own anti-crosstalk (mode / strength / weaving contrast), pushed
+// through SR-lib's SRInterfaceDXxx::SetCrosstalk. SR-lib reads the panel's
+// defaults off the weaver the first time and scales from them, so
+// (-1, 1.0, 1.0) restores the display as shipped.
+//
+// The settings belong to ONE weaver: a re-created weaver starts from the
+// panel's defaults again, so reset() this whenever the interface is created or
+// deleted and the next frame re-applies. Otherwise it only calls through when a
+// value changes, and logs each apply - that log line is the proof the runtime
+// accepted it. SetCrosstalk returning false means the installed runtime does
+// not offer the settings interface; the UI hides the controls then.
+struct CrosstalkTracker {
+    bool applied{false};
+    bool supported{false};
+    int mode{-1};
+    float strength{1.0f};
+    float contrast{1.0f};
+
+    void reset() {
+        applied = false;
+        supported = false;
+    }
+
+    // set(mode, strength, contrast) -> bool, i.e. a lambda over SetCrosstalk;
+    // keeps this header free of SR.hpp.
+    template <typename SetFn>
+    void apply(int new_mode, float new_strength, float new_contrast, const char* tag, SetFn&& set) {
+        if (applied && new_mode == mode && new_strength == strength && new_contrast == contrast) {
+            return;
+        }
+
+        const bool was_applied = applied;
+        applied = true;
+        mode = new_mode;
+        strength = new_strength;
+        contrast = new_contrast;
+
+        bool ok = false;
+        try {
+            ok = set(new_mode, new_strength, new_contrast);
+        } catch (...) {
+            ok = false;
+        }
+
+        if (ok) {
+            static constexpr const char* names[] = {"Display Default", "Off", "Static", "Dynamic"};
+            const char* name = (new_mode >= -1 && new_mode <= 2) ? names[new_mode + 1] : "?";
+            spdlog::info("{} LeiaSR: weaver crosstalk mode {} strength {:.2f} contrast {:.2f}", tag, name,
+                         new_strength, new_contrast);
+        } else if (!was_applied || supported) {
+            spdlog::warn("{} LeiaSR: weaver anti-crosstalk settings not offered by this SR runtime", tag);
+        }
+
+        supported = ok;
+    }
 };
 
 } // namespace vrmod::flat3d::leiasr

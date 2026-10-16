@@ -1541,6 +1541,13 @@ private:
         "No-Tear Fast",
         "Force 1/2",
     };
+    // Index - 1 == SimulatedReality::SRCrosstalkMode (Default = -1 ... Dynamic = 2).
+    static const inline std::vector<std::string> s_flat3d_leia_act_mode_names{
+        "Display Default",
+        "Off",
+        "Static",
+        "Dynamic",
+    };
     static const inline std::vector<std::string> s_flat3d_hud_depth_names{
         "Flat (GUI Depth)",
         "Depth-Adaptive (Auto-Classified)",
@@ -1812,6 +1819,13 @@ private:
     // room to work. Cancellation clips at the bottom, so lifting the floor
     // targets that directly and costs black level instead of contrast. 0.0 == off.
     const ModSlider::Ptr m_flat3d_ghost_lift{ ModSlider::create(generate_name("Flat3D_GhostLift"), 0.0f, 0.25f, 0.0f) };
+    // LeiaSR only: the weaver's own anti-crosstalk, through SR-lib's SetCrosstalk.
+    // Strength and contrast are multiples of the panel's measured defaults, so
+    // (Display Default, 1.0, 1.0) is the display as shipped. Independent of the
+    // compose-shader levers above - these are the display's settings.
+    const ModCombo::Ptr m_flat3d_leia_act_mode{ ModCombo::create(generate_name("Flat3D_LeiaCrosstalkMode"), s_flat3d_leia_act_mode_names, 0) };
+    const ModSlider::Ptr m_flat3d_leia_act_strength{ ModSlider::create(generate_name("Flat3D_LeiaCrosstalkStrength"), 0.0f, 3.0f, 1.0f) };
+    const ModSlider::Ptr m_flat3d_leia_act_contrast{ ModSlider::create(generate_name("Flat3D_LeiaWeavingContrast"), 0.5f, 1.0f, 1.0f) };
 
     // OpenTrack head tracking (v2). UDP receiver feeds a small head-coupled
     // perspective offset; separate look (yaw/pitch coupling) + parallax gains.
@@ -1925,6 +1939,9 @@ public:
             *m_flat3d_d3d12_debug_layer,
             *m_flat3d_ghost_contrast,
             *m_flat3d_ghost_lift,
+            *m_flat3d_leia_act_mode,
+            *m_flat3d_leia_act_strength,
+            *m_flat3d_leia_act_contrast,
             *m_flat3d_opentrack_enabled,
             *m_flat3d_opentrack_port,
             *m_flat3d_opentrack_pos_scale,

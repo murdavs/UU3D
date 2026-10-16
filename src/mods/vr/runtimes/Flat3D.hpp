@@ -157,6 +157,11 @@ struct Flat3D final : public VRRuntime {
     std::atomic<float> head_z{0.0f};
     std::atomic<bool>  opentrack_active{false};
 
+    // True while the LeiaSR weaver is weaving AND its runtime accepted the
+    // anti-crosstalk settings interface. Written by the D3D components after
+    // each composite; gates the weaver controls in the Ghost Reduction UI.
+    std::atomic<bool>  leiasr_crosstalk_controls{false};
+
     // APlayerController::bShowMouseCursor, sampled on the game thread by the
     // projection hook. Drives the stereo cursor overlay.
     std::atomic<bool>  game_wants_cursor{false};

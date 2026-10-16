@@ -3636,6 +3636,10 @@ vrmod::flat3d::Flat3DFrameParams VR::build_flat3d_frame_params(uint32_t eye_w, u
     // Ghost reduction (SDR only; the shader gates on colorspace).
     p.ghost_contrast = m_flat3d_ghost_contrast->value();
     p.ghost_lift = m_flat3d_ghost_lift->value();
+    // Clamped here because a hand-edited config bypasses the slider ranges.
+    p.leia_act_mode = std::clamp(m_flat3d_leia_act_mode->value(), 0, 3) - 1;
+    p.leia_act_strength = std::clamp(m_flat3d_leia_act_strength->value(), 0.0f, 3.0f);
+    p.leia_act_contrast = std::clamp(m_flat3d_leia_act_contrast->value(), 0.5f, 1.0f);
 
     return p;
 }
@@ -4366,6 +4370,55 @@ void VR::on_draw_sidebar_flat3d() {
     }
 
     if (ImGui::TreeNode("Ghost Reduction (Crosstalk)")) {
+        // The LeiaSR weaver's own anti-crosstalk. Shown only while the weaver is
+        // actually weaving and its runtime accepted the settings interface.
+        const bool leia_act_visible =
+            (vrmod::flat3d::Flat3DOutputMode)m_flat3d_output_mode->value() == vrmod::flat3d::Flat3DOutputMode::LEIA_SR &&
+            flat3d != nullptr && flat3d->leiasr_crosstalk_controls.load();
+
+        if (leia_act_visible) {
+            ImGui::TextUnformatted("LeiaSR Weaver");
+
+            m_flat3d_leia_act_mode->draw("Weaver Crosstalk Mode");
+            if (ImGui::IsItemHovered()) {
+                ImGui::SetTooltip(
+                    "The panel's own crosstalk cancellation, applied by the LeiaSR weaver.\n\n"
+                    "Display Default - the panel's own choice (Dynamic on current panels).\n"
+                    "Dynamic - follows your tracked eye position.\n"
+                    "Static - a fixed correction.\n"
+                    "Off - no cancellation.");
+            }
+
+            m_flat3d_leia_act_strength->draw("Weaver Crosstalk Strength");
+            if (ImGui::IsItemHovered()) {
+                ImGui::SetTooltip(
+                    "How hard the panel cancels crosstalk, as a multiple of its own measured\n"
+                    "factors. 1.00 = the display as shipped.\n\n"
+                    "Higher removes more ghosting but clips more in dark areas - pair it with\n"
+                    "Black Lift below. Lower cancels less and clips less.\n\n"
+                    "Try 1.30 first.");
+            }
+
+            m_flat3d_leia_act_contrast->draw("Weaving Contrast");
+            if (ImGui::IsItemHovered()) {
+                ImGui::SetTooltip(
+                    "The weaver's own contrast, as a multiple of the panel's. Squeezes the\n"
+                    "image much like Contrast below, but inside the weaver.\n\n"
+                    "1.00 = the display as shipped. Try 0.97 first.");
+            }
+
+            text_disabled_wrapped("The display's own settings, applied to the weaver - independent of "
+                                  "the shader levers below and not captured in 3D screenshots.");
+
+            if (ImGui::Button("Display Defaults##flat3d_leia_act")) {
+                m_flat3d_leia_act_mode->value() = 0;
+                m_flat3d_leia_act_strength->value() = 1.0f;
+                m_flat3d_leia_act_contrast->value() = 1.0f;
+            }
+
+            ImGui::Separator();
+        }
+
         m_flat3d_ghost_contrast->draw("Contrast");
         if (ImGui::IsItemHovered()) {
             ImGui::SetTooltip(

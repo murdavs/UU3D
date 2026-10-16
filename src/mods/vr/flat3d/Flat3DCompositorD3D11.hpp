@@ -20,6 +20,8 @@
 #endif
 
 #ifdef UEVR_FLAT3D_HAS_LEIASR
+#include "Flat3DLeiaSRRuntime.hpp"
+
 namespace SimulatedReality {
 class SRInterfaceDX11;
 }
@@ -77,6 +79,9 @@ public:
     DXGI_FORMAT eye_format() const { return m_eye_format; }
     Flat3DColorSpace colorspace() const { return m_colorspace; }
     bool leiasr_available() const;
+    // True while the LeiaSR weaver is weaving and its runtime accepts the
+    // anti-crosstalk settings - the UI shows the weaver controls only then.
+    bool leiasr_crosstalk_controls() const;
 
     // Composited per-eye textures (index 0 = left), valid after composite().
     // Used by the Katanga handoff to build the shared SbS frame.
@@ -287,6 +292,11 @@ private:
     SimulatedReality::SRInterfaceDX11* m_sr{nullptr};
     bool m_sr_attempted{false};
     bool m_sr_input_bound{false};
+    // Last weaver anti-crosstalk pushed to THIS interface; reset whenever it
+    // is created or deleted so a new weaver gets the settings re-applied.
+    leiasr::CrosstalkTracker m_sr_crosstalk{};
+    // Whether the last composite actually wove (tracked in set_leiasr_lens).
+    bool m_sr_woven{false};
 #endif
 };
 

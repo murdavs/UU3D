@@ -1990,6 +1990,14 @@ void Flat3DCompositorD3D11::sample_depth(ID3D11DeviceContext* context, ID3D11Tex
     }
 }
 
+bool Flat3DCompositorD3D11::leiasr_crosstalk_controls() const {
+#ifdef UEVR_FLAT3D_HAS_LEIASR
+    return m_sr != nullptr && m_sr_woven && m_sr_crosstalk.supported;
+#else
+    return false;
+#endif
+}
+
 bool Flat3DCompositorD3D11::leiasr_available() const {
 #ifdef UEVR_FLAT3D_HAS_LEIASR
     // True while the interface exists OR creation hasn't been attempted yet —
@@ -2283,6 +2291,9 @@ bool Flat3DCompositorD3D11::weave_leiasr(ID3D11DeviceContext* context, ID3D11Ren
         // Input is sRGB 8-bit from the engine; weaver converts on read/write.
         m_sr->SetShaderSRGBConversion(true, true);
 
+        // A new weaver starts from the panel's own crosstalk settings.
+        m_sr_crosstalk.reset();
+
         spdlog::info("[Flat3D] LeiaSR weaver ready");
     }
 
@@ -2308,6 +2319,13 @@ bool Flat3DCompositorD3D11::weave_leiasr(ID3D11DeviceContext* context, ID3D11Ren
         m_sr_input_bound = true;
     }
 
+    // The weaver's own anti-crosstalk. Only calls through when a value changed
+    // (or the weaver is new), so this is a compare on steady frames.
+    m_sr_crosstalk.apply(params.leia_act_mode, params.leia_act_strength, params.leia_act_contrast,
+                         "[Flat3D]", [this](int mode, float strength, float contrast) {
+                             return m_sr->SetCrosstalk((SimulatedReality::SRCrosstalkMode)mode, strength, contrast);
+                         });
+
     D3D11_VIEWPORT viewport{};
     viewport.Width = (float)out_w;
     viewport.Height = (float)out_h;
@@ -2328,6 +2346,7 @@ bool Flat3DCompositorD3D11::weave_leiasr(ID3D11DeviceContext* context, ID3D11Ren
         m_sr->Delete(); // weaver then context, in that order
         m_sr = nullptr;
         m_sr_input_bound = false;
+        m_sr_crosstalk.reset();
         return false;
     }
 
@@ -2343,6 +2362,8 @@ bool Flat3DCompositorD3D11::weave_leiasr(ID3D11DeviceContext* context, ID3D11Ren
 
 void Flat3DCompositorD3D11::set_leiasr_lens(bool enabled) {
 #ifdef UEVR_FLAT3D_HAS_LEIASR
+    m_sr_woven = enabled;
+
     if (m_sr == nullptr) {
         return;
     }
@@ -2379,6 +2400,8 @@ void Flat3DCompositorD3D11::destroy_leiasr() {
     }
     m_sr_attempted = false;
     m_sr_input_bound = false;
+    m_sr_crosstalk.reset();
+    m_sr_woven = false;
 #endif
     m_sbs_tex.Reset();
     m_sbs_srv.Reset();

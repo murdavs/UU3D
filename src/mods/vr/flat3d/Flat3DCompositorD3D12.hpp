@@ -22,6 +22,8 @@
 #endif
 
 #ifdef UEVR_FLAT3D_HAS_LEIASR_DX12
+#include "Flat3DLeiaSRRuntime.hpp"
+
 namespace SimulatedReality {
 class SRInterfaceDX12;
 }
@@ -75,6 +77,9 @@ public:
     void reset();
 
     bool ready() const { return m_ready; }
+    // True while the LeiaSR weaver is weaving and its runtime accepts the
+    // anti-crosstalk settings - the UI shows the weaver controls only then.
+    bool leiasr_crosstalk_controls() const;
     Flat3DColorSpace colorspace() const { return m_colorspace; }
 
     // Composited per-eye textures (index 0 = left), valid after composite().
@@ -121,7 +126,7 @@ private:
     void build_sbs(ID3D12GraphicsCommandList* cmd, const Flat3DFrameParams& params,
                    uint32_t out_w, uint32_t out_h);
     bool weave_leiasr(ID3D12GraphicsCommandList* cmd, ID3D12Resource* backbuffer,
-                      uint32_t out_w, uint32_t out_h, HWND hwnd);
+                      uint32_t out_w, uint32_t out_h, HWND hwnd, const Flat3DFrameParams& params);
     // Take/release the display's switchable lens. Driven per-frame off whether
     // a weave actually happened, so leaving LeiaSR — by mode switch or by
     // weaver failure — hands the lens back instead of leaving the panel lensed
@@ -269,6 +274,11 @@ private:
     SimulatedReality::SRInterfaceDX12* m_sr{nullptr};
     bool m_sr_attempted{false};
     bool m_sr_input_bound{false};
+    // Last weaver anti-crosstalk pushed to THIS interface; reset whenever it
+    // is created or deleted so a new weaver gets the settings re-applied.
+    leiasr::CrosstalkTracker m_sr_crosstalk{};
+    // Whether the last composite actually wove (tracked in set_leiasr_lens).
+    bool m_sr_woven{false};
 #endif
 };
 

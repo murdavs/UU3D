@@ -309,6 +309,7 @@ vr::EVRCompositorError D3D11Component::on_frame_flat3d(VR* vr) {
                                                           bb_desc.Width, bb_desc.Height, params, &ui_coverage);
 
     vr->get_flat3d_runtime()->ui_coverage.store(ui_coverage);
+    vr->get_flat3d_runtime()->leiasr_crosstalk_controls.store(m_flat3d_compositor.leiasr_crosstalk_controls());
 
     if (composited && menu_tex != nullptr) {
         g_framework->set_flat3d_menu_composited(true);

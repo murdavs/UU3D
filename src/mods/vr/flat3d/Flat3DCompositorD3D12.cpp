@@ -1426,7 +1426,7 @@ bool Flat3DCompositorD3D12::composite(ID3D12Resource* double_wide,
     bool leia_done = false;
     if (params.mode == (int32_t)Flat3DOutputMode::LEIA_SR) {
         build_sbs(cmd, params, out_w, out_h);
-        leia_done = weave_leiasr(cmd, backbuffer, out_w, out_h, hwnd);
+        leia_done = weave_leiasr(cmd, backbuffer, out_w, out_h, hwnd, params);
     }
 
     // The lens preference tracks whether we actually wove, not the requested
@@ -2136,8 +2136,17 @@ bool Flat3DCompositorD3D12::save_screenshot(ID3D12CommandQueue* queue, const Fla
     return ok;
 }
 
+bool Flat3DCompositorD3D12::leiasr_crosstalk_controls() const {
+#ifdef UEVR_FLAT3D_HAS_LEIASR_DX12
+    return m_sr != nullptr && m_sr_woven && m_sr_crosstalk.supported;
+#else
+    return false;
+#endif
+}
+
 bool Flat3DCompositorD3D12::weave_leiasr(ID3D12GraphicsCommandList* cmd, ID3D12Resource* backbuffer,
-                                         uint32_t out_w, uint32_t out_h, HWND hwnd) {
+                                         uint32_t out_w, uint32_t out_h, HWND hwnd,
+                                         const Flat3DFrameParams& params) {
 #ifdef UEVR_FLAT3D_HAS_LEIASR_DX12
     if (m_sbs_tex == nullptr) {
         return false;
@@ -2173,6 +2182,9 @@ bool Flat3DCompositorD3D12::weave_leiasr(ID3D12GraphicsCommandList* cmd, ID3D12R
         // re-encodes on write.
         m_sr->SetShaderSRGBConversion(true, true);
 
+        // A new weaver starts from the panel's own crosstalk settings.
+        m_sr_crosstalk.reset();
+
         spdlog::info("[Flat3D][D3D12] LeiaSR weaver ready");
     }
 
@@ -2189,6 +2201,13 @@ bool Flat3DCompositorD3D12::weave_leiasr(ID3D12GraphicsCommandList* cmd, ID3D12R
         m_sr->SetOutputFormat(view_format_for(m_backbuffer_format));
         m_sr_input_bound = true;
     }
+
+    // The weaver's own anti-crosstalk. Only calls through when a value changed
+    // (or the weaver is new), so this is a compare on steady frames.
+    m_sr_crosstalk.apply(params.leia_act_mode, params.leia_act_strength, params.leia_act_contrast,
+                         "[Flat3D][D3D12]", [this](int mode, float strength, float contrast) {
+                             return m_sr->SetCrosstalk((SimulatedReality::SRCrosstalkMode)mode, strength, contrast);
+                         });
 
     // The weaver records into cmd and draws to the currently bound RTV. The
     // effective viewport is the command list's rasterizer state — the eye/SbS
@@ -2227,6 +2246,7 @@ bool Flat3DCompositorD3D12::weave_leiasr(ID3D12GraphicsCommandList* cmd, ID3D12R
         m_sr->Delete(); // weaver then context, in that order
         m_sr = nullptr;
         m_sr_input_bound = false;
+        m_sr_crosstalk.reset();
         barrier(cmd, backbuffer, D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_PRESENT);
         return false;
     }
@@ -2234,13 +2254,15 @@ bool Flat3DCompositorD3D12::weave_leiasr(ID3D12GraphicsCommandList* cmd, ID3D12R
     barrier(cmd, backbuffer, D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_PRESENT);
     return true;
 #else
-    (void)cmd; (void)backbuffer; (void)out_w; (void)out_h; (void)hwnd;
+    (void)cmd; (void)backbuffer; (void)out_w; (void)out_h; (void)hwnd; (void)params;
     return false;
 #endif
 }
 
 void Flat3DCompositorD3D12::set_leiasr_lens(bool enabled) {
 #ifdef UEVR_FLAT3D_HAS_LEIASR_DX12
+    m_sr_woven = enabled;
+
     if (m_sr == nullptr) {
         return;
     }
@@ -2277,6 +2299,8 @@ void Flat3DCompositorD3D12::destroy_leiasr() {
     }
     m_sr_attempted = false;
     m_sr_input_bound = false;
+    m_sr_crosstalk.reset();
+    m_sr_woven = false;
 #endif
     m_sbs_tex.Reset();
     m_sbs_rtv_heap.Reset();

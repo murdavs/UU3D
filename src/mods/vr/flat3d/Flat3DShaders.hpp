@@ -259,6 +259,15 @@ struct Flat3DFrameParams {
     // there is no clipping to relieve and only ghost_contrast helps.
     float ghost_lift{0.0f};
 
+    // LeiaSR weaver anti-crosstalk (SR-lib SetCrosstalk). Unlike the two levers
+    // above these are the PANEL's settings, not part of our shader pass: mode is
+    // SimulatedReality::SRCrosstalkMode (-1 = the panel's own), strength and
+    // contrast are multiples of the panel's measured defaults. (-1, 1, 1) is the
+    // display as shipped. Ignored by every other output mode.
+    int32_t leia_act_mode{-1};
+    float leia_act_strength{1.0f};
+    float leia_act_contrast{1.0f};
+
     // Symmetric-projection mode: per-eye matrices identical (no shear);
     // convergence applied as a compositor image shift instead.
     float scene_shift_px{0.0f}; // LEFT-eye value (right eye = -)
