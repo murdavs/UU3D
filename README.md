@@ -437,6 +437,29 @@ default and a pure no-op when disabled.
 
 ## Ghost Reduction (Crosstalk)
 
+### LeiaSR Weaver (LeiaSR only)
+
+On a LeiaSR panel the weaver cancels crosstalk itself, using factors measured for
+that specific panel. These three controls tune that correction. They appear at the
+top of the section only while LeiaSR is actually weaving and the installed SR
+runtime accepts them, and are hidden in every other output mode.
+
+- **Weaver Crosstalk Mode** — `Display Default` keeps the panel's own choice
+  (Dynamic on current panels). `Dynamic` follows your tracked eye position,
+  `Static` is a fixed correction, `Off` disables cancellation.
+- **Weaver Crosstalk Strength** (`1.00` = the display as shipped) — a multiple of
+  the panel's own factors, `0`–`3`. Higher cancels more ghosting but clips more in
+  dark areas, so pair it with **Black Lift** below. Try `1.30` first.
+- **Weaving Contrast** (`1.00` = the display as shipped) — the weaver's own
+  contrast, `0.5`–`1.0`. Behaves much like **Contrast** below, inside the weaver.
+  Try `0.97` first.
+
+**Display Defaults** puts all three back to the panel as shipped. These are the
+display's settings rather than part of the compose shader, so they work
+independently of the sliders below and are not captured in 3D screenshots.
+
+### Contrast and Black Lift (all output modes)
+
 Two sliders that reduce ghosting by compressing the signal range before it
 reaches the display — the standard range-compression approach from the stereo
 crosstalk literature. Both are off by default and both run in linear light.
